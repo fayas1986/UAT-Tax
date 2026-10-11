@@ -75,7 +75,25 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma db push --accept-data-loss
-      - run: npx vitest run --fileParallelism=false --reporter=verbose
+      - name: Run Test Suite
+        run: |
+          set -o pipefail
+          npx vitest run --fileParallelism=false --reporter=verbose 2>&1 | tee vitest_output.log || {
+            TEST_STATUS=$?
+            echo "## Vitest Test Suite Failure Summary" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 120 vitest_output.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $TEST_STATUS
+          }
+      - name: Upload Test Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-output-log
+          path: vitest_output.log
+
+
 
   regional-compliance:
     name: Saudi Arabia Data Residency & Spec Verification

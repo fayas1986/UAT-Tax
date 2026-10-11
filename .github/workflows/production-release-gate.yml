@@ -78,7 +78,7 @@ jobs:
       - name: Run Test Suite
         run: |
           set -o pipefail
-          npx vitest run --fileParallelism=false --reporter=verbose 2>&1 | tee vitest_output.log || {
+          npx vitest run --fileParallelism=false --reporter=verbose --reporter=github 2>&1 | tee vitest_output.log || {
             TEST_STATUS=$?
             echo "## Vitest Test Suite Failure Summary" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY

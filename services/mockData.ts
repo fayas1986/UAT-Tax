@@ -34,6 +34,7 @@ const initialOrganizations: Organization[] = [
         id: 'br-001',
         organizationId: 'org-001',
         name: 'Riyadh Main Branch (HQ)',
+        code: 'BR-001',
         type: 'HQ',
         address: {
           streetName: 'King Fahd Road',
@@ -49,7 +50,8 @@ const initialOrganizations: Organization[] = [
         id: 'br-002',
         organizationId: 'org-001',
         name: 'Jeddah Regional Branch',
-        type: 'BRANCH',
+        code: 'BR-002',
+        type: 'Branch',
         address: {
           streetName: 'Al Madinah Road',
           buildingNumber: '3410',
@@ -64,7 +66,8 @@ const initialOrganizations: Organization[] = [
         id: 'br-003',
         organizationId: 'org-001',
         name: 'Dammam Branch',
-        type: 'BRANCH',
+        code: 'BR-003',
+        type: 'Branch',
         address: {
           streetName: 'King Abdulaziz St',
           buildingNumber: '8912',
@@ -79,7 +82,8 @@ const initialOrganizations: Organization[] = [
         id: 'br-004',
         organizationId: 'org-001',
         name: 'Khobar Commercial Branch',
-        type: 'BRANCH',
+        code: 'BR-004',
+        type: 'Branch',
         address: {
           streetName: 'Prince Turki St',
           buildingNumber: '4520',
@@ -94,7 +98,8 @@ const initialOrganizations: Organization[] = [
         id: 'br-005',
         organizationId: 'org-001',
         name: 'Medina Branch',
-        type: 'BRANCH',
+        code: 'BR-005',
+        type: 'Branch',
         address: {
           streetName: 'Sultana Rd',
           buildingNumber: '6110',
@@ -109,7 +114,8 @@ const initialOrganizations: Organization[] = [
         id: 'br-006',
         organizationId: 'org-001',
         name: 'Mecca Branch',
-        type: 'BRANCH',
+        code: 'BR-006',
+        type: 'Branch',
         address: {
           streetName: 'Ibrahim Al Khalil St',
           buildingNumber: '2310',
@@ -124,7 +130,8 @@ const initialOrganizations: Organization[] = [
         id: 'br-007',
         organizationId: 'org-001',
         name: 'Tabuk Branch',
-        type: 'BRANCH',
+        code: 'BR-007',
+        type: 'Branch',
         address: {
           streetName: 'King Faisal Rd',
           buildingNumber: '4120',

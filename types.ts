@@ -31,6 +31,7 @@ export interface Branch {
   id: string;
   organizationId: string;
   name: string;
+  code?: string;
   type: 'HQ' | 'Branch' | 'Store' | 'Warehouse';
   address: Address;
   environment?: 'PRODUCTION' | 'SIMULATION' | 'SANDBOX';
@@ -84,6 +85,8 @@ export interface InvoiceHistoryEvent {
 export interface Invoice {
   id: string;
   branchId: string; // Link to specific branch
+  branchCode?: string;
+  branchName?: string;
   uuid: string;
   invoiceNumber: string;
   issueDate: string; // ISO String (Creation Date)

@@ -1,14 +1,26 @@
-This contains everything you need to run your app locally.
+# Alwadi-Zatca
+Alwadi ZATCA E-Invoicing Integration Application
 
-View your app in AI Studio: https://ai.studio/apps/drive/1j-ly_YFcW3W0zoS2sTf-92DzaEh0OJLX
+This repository contains the complete ZATCA Phase 2 E-Invoicing integration solution for Alwadi, supporting multi-branch compliance, cryptographic onboarding (CSR/CSID), invoice signing, reporting, and clearance.
 
-## Run Locally
+## Quick Start
 
-**Prerequisites:**  Node.js
+### Prerequisites
+- Node.js (v18+ or v20+)
+- PostgreSQL (or Neon DB connection)
+- .NET 8 SDK (for local ZATCA SDK execution)
 
+### Installation & Run
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+
+2. Configure environment:
+   Set up your `.env` and `.env.local` with database connection and configuration keys.
+
+3. Run locally:
+   ```bash
+   npm run dev:all
+   ```

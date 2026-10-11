@@ -844,10 +844,7 @@ router.get('/branches', requireAnyAdmin, async (req, res) => {
         let whereClause: any = { is_deleted: false };
 
         if (!auth.isSuperAdmin) {
-            if (companyId) {
-                if (!auth.authorizedCompanyIds.includes(companyId)) {
-                    return res.status(403).json({ error: 'UNAUTHORIZED_BRANCH_ACCESS: Cannot view branches outside assigned company' });
-                }
+            if (companyId && auth.authorizedCompanyIds.includes(companyId)) {
                 whereClause.company_id = companyId;
             } else {
                 whereClause.company_id = { in: auth.authorizedCompanyIds };
@@ -862,11 +859,57 @@ router.get('/branches', requireAnyAdmin, async (req, res) => {
             include: { company: true }
         });
 
-        res.json(branches);
+        const mappedBranches = branches.map((b: any) => ({
+            ...b,
+            branch_name: b.name,
+            branch_code: b.code
+        }));
+
+        res.json(mappedBranches);
     } catch (err: any) {
         res.status(500).json({ error: 'Failed to fetch branches', details: err.message });
     }
 });
+
+/**
+ * @swagger
+ * /api/admin/certificates:
+ *   get:
+ *     summary: List certificates with tenant isolation
+ *     tags: [Admin - Certificates]
+ */
+router.get('/certificates', requireAnyAdmin, async (req, res) => {
+    try {
+        const auth = await getVerifiedAuthContext(req);
+        if ('errorStatus' in auth) {
+            return res.status(auth.errorStatus).json({ error: auth.errorMessage });
+        }
+
+        const rawCompanyId = req.query.companyId as string;
+        const companyId = rawCompanyId ? parseInt(rawCompanyId, 10) : undefined;
+        let whereClause: any = { is_deleted: false };
+
+        if (!auth.isSuperAdmin) {
+            if (companyId && auth.authorizedCompanyIds.includes(companyId)) {
+                whereClause.company_id = companyId;
+            } else {
+                whereClause.company_id = { in: auth.authorizedCompanyIds };
+            }
+        } else if (companyId) {
+            whereClause.company_id = companyId;
+        }
+
+        const certificates = await prisma.certificate.findMany({
+            where: whereClause,
+            orderBy: { id: 'asc' }
+        });
+
+        res.json(certificates);
+    } catch (err: any) {
+        res.status(500).json({ error: 'Failed to fetch certificates', details: err.message });
+    }
+});
+
 
 /**
  * @swagger

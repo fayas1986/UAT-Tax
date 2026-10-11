@@ -93,6 +93,8 @@ app.use(helmet({
 
 
 app.use('/api/zatca', zatcaRouter);
+app.use('/api/invoices', zatcaRouter);
+app.use('/api/reports', reportsRouter);
 app.use('/api/v1', apiV1Router);
 app.use('/api/erp', erpRouter);
 app.use('/api/admin/reports', reportsRouter);
@@ -131,6 +133,15 @@ app.get('/api/db-test', async (req, res) => {
     }
 });
  
+// 404 JSON Fallback Handler
+app.use((req, res, next) => {
+    res.status(404).json({
+        error: 'Not Found',
+        message: `Route ${req.method} ${req.originalUrl} not found`,
+        status: 404
+    });
+});
+
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     const correlationId = (req as any).correlationId || `corr-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;

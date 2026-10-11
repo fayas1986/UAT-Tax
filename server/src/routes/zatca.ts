@@ -510,9 +510,9 @@ router.get('/invoices', async (req, res) => {
  *       200:
  *         description: Invoice details
  */
-router.get('/invoices/:id', async (req, res) => {
+router.get(['/invoices/:id', '/:id'], async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = String(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
         console.log(`[ZATCA API] Fetching invoice with ID/UUID: ${id}`);
 
         // Handle UUID vs Integer ID
@@ -522,7 +522,7 @@ router.get('/invoices/:id', async (req, res) => {
         const userRole = req.headers['x-user-role'];
         const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
 
-        const where: any = isUuid ? { uuid: id } : { id: parseInt(id) };
+        const where: any = isUuid ? { uuid: id } : { id: parseInt(id, 10) };
         where.is_deleted = false;
 
         if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
@@ -558,6 +558,51 @@ router.get('/invoices/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch invoice details' });
     }
 });
+
+// GET /api/invoices/:id/xml & /api/zatca/invoices/:id/xml - Fetch Invoice XML with Tenant Isolation
+router.get(['/invoices/:id/xml', '/:id/xml'], async (req, res) => {
+    try {
+        const id = String(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
+        const userRole = req.headers['x-user-role'];
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
+
+        const isUuid = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        const where: any = isUuid ? { uuid: id } : { id: parseInt(id, 10) };
+
+        where.is_deleted = false;
+
+        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
+            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
+            if (!user) return res.status(403).json({ error: 'User not found' });
+
+            where.company = {
+                OR: [
+                    { user: { email: userEmail } },
+                    { registered_name: user.company_name || '___NEVER_MATCH___' }
+                ]
+            };
+        }
+
+        const invoice = await prisma.invoice.findFirst({
+            where,
+            include: { company: true }
+        });
+
+        if (!invoice || (!invoice.xml_payload && !invoice.cleared_xml_payload)) {
+            return res.status(404).json({
+                error: 'Invoice not found',
+                message: 'Invoice or XML payload not found'
+            });
+        }
+
+        res.setHeader('Content-Type', 'application/xml');
+        res.send(invoice.cleared_xml_payload || invoice.xml_payload);
+    } catch (error: any) {
+        console.error('Error fetching invoice XML:', error);
+        res.status(500).json({ error: 'Failed to fetch invoice XML', message: error.message });
+    }
+});
+
 
 router.post('/onboard', async (req, res) => {
     const {

@@ -427,4 +427,49 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
     }
 });
 
+// GET /api/reports/vat-summary - Tenant-scoped VAT summary report
+router.get('/vat-summary', async (req, res) => {
+    try {
+        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
+        const userRole = req.headers['x-user-role'];
+        let targetCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+
+        // If not SUPER_ADMIN, strictly scope companyId to user's authorized company
+        if (userRole !== 'SUPER_ADMIN' && userEmail) {
+            const user = await prisma.user.findFirst({
+                where: { email: { equals: userEmail, mode: 'insensitive' } },
+                include: { companies: true }
+            });
+            const authorizedCompany = user?.companies?.[0] || await prisma.company.findFirst({ where: { user_id: user?.id } });
+            if (authorizedCompany) {
+                targetCompanyId = authorizedCompany.id;
+            }
+        }
+
+        const where: any = { is_deleted: false };
+        if (targetCompanyId) {
+            where.company_id = targetCompanyId;
+        }
+
+        const invoices = await prisma.invoice.findMany({
+            where,
+            select: { total_amount: true, tax_amount: true }
+        });
+
+        const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+        const totalVat = invoices.reduce((sum, inv) => sum + Number(inv.tax_amount || 0), 0);
+
+        res.json({
+            companyId: targetCompanyId,
+            invoicesCount: invoices.length,
+            totalSales,
+            totalVat
+        });
+    } catch (error: any) {
+        console.error('[Reports] VAT Summary Error:', error);
+        res.status(500).json({ error: 'Failed to generate VAT summary', details: error.message });
+    }
+});
+
 export default router;
+

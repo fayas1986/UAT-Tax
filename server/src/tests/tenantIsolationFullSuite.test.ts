@@ -94,14 +94,13 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
     const competitorInvoice = await prisma.invoice.create({
       data: {
         company_id: competitorCompanyId,
-        invoice_counter: 9001,
+        invoice_number: 'INV-COMPETITOR-9001',
         uuid: 'competitor-real-inv-uuid-9001',
-        invoice_type: 'TAX_INVOICE',
-        issue_date: new Date(),
+        type: 'B2B',
         date: new Date(),
         status: 'CLEARED',
         total_amount: 8888.00,
-        vat_amount: 1333.20,
+        tax_amount: 1333.20,
         xml_payload: '<xml>COMPETITOR_SECRET_PAYLOAD</xml>',
         hash: 'competitorsecretinvoicehash9001'
       }
@@ -111,8 +110,8 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
     const competitorBranch = await prisma.branch.create({
       data: {
         company_id: competitorCompanyId,
-        branch_name: 'Competitor Secret Branch',
-        branch_code: 'COMP-BR-99'
+        name: 'Competitor Secret Branch',
+        code: 'COMP-BR-99'
       }
     });
     competitorBranchId = competitorBranch.id;
@@ -120,13 +119,16 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
     const competitorCert = await prisma.certificate.create({
       data: {
         company_id: competitorCompanyId,
+        type: 'PRODUCTION',
+        certificate: 'COMPETITOR_SECRET_CERT_DATA',
+        public_key: 'COMPETITOR_SECRET_PUB_KEY',
         serial_number: 'COMP-CERT-SECRET-999',
         common_name: 'Competitor Production CSID',
-        certificate_data: 'COMPETITOR_SECRET_CERT_DATA',
         private_key: 'COMPETITOR_SECRET_PRIV_KEY'
       }
     });
     competitorCertId = competitorCert.id;
+
 
     // 4. Setup Unassigned User (No Company Membership)
     const userUnassigned = await prisma.user.upsert({
@@ -283,7 +285,7 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
       .set('x-user-email', alwadiEmail)
       .expect(200);
 
-    const branchNames = (branchRes.body || []).map((b: any) => b.branch_name);
+    const branchNames = (branchRes.body || []).map((b: any) => b.branch_name || b.name);
     expect(branchNames).not.toContain('Competitor Secret Branch');
 
     // Certificate request

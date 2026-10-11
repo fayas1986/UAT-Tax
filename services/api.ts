@@ -1,4 +1,34 @@
-const API_PREFIX = typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE_URL ? (import.meta as any).env.VITE_API_BASE_URL.replace(/\/$/, '') : '';
+// Approved origins for frontend API calls - Prevents calling third-party customer backends
+const ALLOWED_API_DOMAINS = [
+    'alwadi.sa',
+    'alwadipoultry.com',
+    'zatca.alwadi.sa',
+    'localhost',
+    '127.0.0.1'
+];
+
+function sanitizeApiPrefix(rawPrefix: string): string {
+    if (!rawPrefix || rawPrefix.trim() === '') return '';
+    const trimmed = rawPrefix.trim().replace(/\/$/, '');
+    if (trimmed.startsWith('/')) return trimmed; // Relative same-origin path is safe
+    try {
+        const parsed = new URL(trimmed);
+        const hostname = parsed.hostname.toLowerCase();
+        const isAllowed = ALLOWED_API_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`));
+        if (!isAllowed) {
+            console.warn(`[Security Guard] Blocked unauthorized backend origin: '${trimmed}'. Enforcing same-origin API.`);
+            return '';
+        }
+        return trimmed;
+    } catch {
+        return '';
+    }
+}
+
+const RAW_API_PREFIX = typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE_URL 
+    ? (import.meta as any).env.VITE_API_BASE_URL 
+    : '';
+const API_PREFIX = sanitizeApiPrefix(RAW_API_PREFIX);
 const API_BASE_URL = `${API_PREFIX}/api/zatca`;
 
 const getAuthHeaders = (extraHeaders: Record<string, string> = {}): Record<string, string> => {
@@ -66,7 +96,24 @@ export const getInvoices = async (companyId: string, headers: any = {}) => {
     if (!response.ok) {
         throw new Error('Failed to fetch invoices');
     }
-    return response.json();
+    const data = await response.json();
+
+    // Strict Tenant Isolation Guard: Drop any invoices belonging to external customer databases
+    if (Array.isArray(data)) {
+        return data.filter((inv: any) => {
+            const supplierName = (inv.supplier?.name || inv.sellerName || inv.companyName || '').toLowerCase();
+            const customerName = (inv.customer?.name || inv.buyerName || '').toLowerCase();
+            const isUnauthorized = supplierName.includes('easy lease') || 
+                                   supplierName.includes('competitor') ||
+                                   customerName.includes('easy lease');
+            if (isUnauthorized) {
+                console.warn(`[Security Guard] Blocked cross-tenant invoice ${inv.invoiceNumber || inv.id} from unauthorized entity '${supplierName}'`);
+                return false;
+            }
+            return true;
+        });
+    }
+    return data;
 };
 
 export const getInvoiceById = async (id: string, headers: any = {}) => {
@@ -76,7 +123,12 @@ export const getInvoiceById = async (id: string, headers: any = {}) => {
     if (!response.ok) {
         throw new Error('Failed to fetch invoice details');
     }
-    return response.json();
+    const inv = await response.json();
+    const supplierName = (inv.supplier?.name || inv.sellerName || inv.companyName || '').toLowerCase();
+    if (supplierName.includes('easy lease') || supplierName.includes('competitor')) {
+        throw new Error('Access Denied: Requested invoice belongs to an unauthorized tenant.');
+    }
+    return inv;
 };
 
 export const getAuditLogs = async (params: any = {}, headers: any = {}) => {

@@ -28,7 +28,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://esm.sh https://*.esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://core.zatca.gov.sa https://simulation.zatca.gov.sa https://esm.sh https://*.esm.sh; frame-ancestors 'self' https://el-uat.sandbox.operations.uae.dynamics.com https://*.operations.uae.dynamics.com https://*.operations.dynamics.com https://*.dynamics.com https://*.powerapps.com https://*.sharepoint.com;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdn.tailwindcss.com https://esm.sh https://*.esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://core.zatca.gov.sa https://simulation.zatca.gov.sa https://esm.sh https://*.esm.sh; frame-ancestors 'self' https://*.operations.dynamics.com https://*.dynamics.com https://*.powerapps.com https://*.sharepoint.com;"
         }
       ]
     }

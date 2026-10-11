@@ -106,6 +106,12 @@ describe('Tenant Isolation & Authorization Security Remediation Suite', () => {
   });
 
   afterAll(async () => {
+    try {
+      if (easyLeaseCompanyId) {
+        await prisma.company.deleteMany({ where: { id: easyLeaseCompanyId } });
+      }
+      await prisma.user.deleteMany({ where: { email: 'easylease_admin@easylease.sa' } });
+    } catch (e) {}
     await prisma.$disconnect();
   });
 

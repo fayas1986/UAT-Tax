@@ -23,10 +23,10 @@ const generateUUID = () => {
 
 // --- INITIAL DATA SEEDING ---
 
-const initialOrganizations: Organization[] = [
+export const initialOrganizations: Organization[] = [
   {
     id: 'org-001',
-    name: 'Alwadi',
+    name: 'Alwadi Trading L.L.C.',
     vatNumber: '300000000000003',
     crNumber: '1010101010',
     branches: [

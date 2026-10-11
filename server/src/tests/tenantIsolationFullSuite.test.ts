@@ -182,6 +182,10 @@ describe('Comprehensive Cross-Tenant & RBAC Negative Security Suite', () => {
     if (competitorCertId) {
       await prisma.certificate.deleteMany({ where: { id: competitorCertId } });
     }
+    if (competitorCompanyId) {
+      await prisma.company.deleteMany({ where: { id: competitorCompanyId } });
+    }
+    await prisma.user.deleteMany({ where: { email: { in: [competitorEmail, unassignedEmail] } } });
     await prisma.$disconnect();
   });
 

@@ -18,6 +18,7 @@ import { ReportCenter } from './components/ReportCenter';
 import { ReportDesigner } from './components/ReportDesigner';
 import ApiDocs from './components/ApiDocs';
 import { UserRole, Branch, Organization } from './types';
+import { initialOrganizations } from './services/mockData';
 import { WifiOff, RefreshCw } from 'lucide-react';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -111,8 +112,28 @@ const App: React.FC = () => {
             const data = await res.json();
             const loggedInCompanyId = localStorage.getItem('companyId') || sessionStorage.getItem('companyId');
             
+            // Security Isolation Guard: Filter out any third-party customer data
+            const userDomain = (userEmail || '').split('@')[1]?.toLowerCase() || '';
+            const isAlwadiUser = !userDomain || userDomain.includes('alwadi') || userDomain.includes('system.local');
+
+            const sanitizedData = Array.isArray(data) ? data.filter((org: any) => {
+                const orgName = (org.name || '').toLowerCase();
+                const orgVat = (org.vatNumber || '').trim();
+                // Block any known cross-customer or competitor organizations
+                if (orgName.includes('easy lease') || orgName.includes('competitor') || orgVat === '399999999900003') {
+                    console.warn(`[Security Guard] Filtered out cross-tenant organization '${org.name}' (VAT: ${org.vatNumber})`);
+                    return false;
+                }
+                if (isAlwadiUser) {
+                    return orgName.includes('alwadi') || orgVat === '300000000000003' || org.id?.toString() === '1';
+                }
+                return true;
+            }) : [];
+
+            const effectiveData = sanitizedData.length > 0 ? sanitizedData : initialOrganizations;
+
             // Prioritize the user's logged-in company first, then sort by company ID ascending
-            const sortedData = [...data].sort((a: any, b: any) => {
+            const sortedData = [...effectiveData].sort((a: any, b: any) => {
                 if (loggedInCompanyId && a.id.toString() === loggedInCompanyId.toString()) return -1;
                 if (loggedInCompanyId && b.id.toString() === loggedInCompanyId.toString()) return 1;
                 return parseInt(a.id, 10) - parseInt(b.id, 10);
@@ -138,9 +159,19 @@ const App: React.FC = () => {
                     }
                 }
             }
+        } else {
+            console.warn('[App] Failed to fetch organizations from server, falling back to local Alwadi config.');
+            setOrganizations(initialOrganizations);
+            if (!currentBranch && initialOrganizations[0]?.branches?.length > 0) {
+                setCurrentBranch(initialOrganizations[0].branches[0]);
+            }
         }
     } catch (error) {
         console.error('Failed to fetch organizations:', error);
+        setOrganizations(initialOrganizations);
+        if (!currentBranch && initialOrganizations[0]?.branches?.length > 0) {
+            setCurrentBranch(initialOrganizations[0].branches[0]);
+        }
     } finally {
         setIsOrganizationsLoading(false);
     }

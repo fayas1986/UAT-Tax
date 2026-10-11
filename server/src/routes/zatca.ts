@@ -328,7 +328,9 @@ const mapInvoiceToFrontend = (inv: any) => {
 
     return {
         id: inv.id.toString(),
-        branchId: `br-${inv.company_id}`,
+        branchId: inv.branch_id ? inv.branch_id.toString() : (inv.branch?.id ? inv.branch?.id.toString() : `br-${inv.company_id}`),
+        branchCode: inv.branch?.code || undefined,
+        branchName: inv.branch?.name || undefined,
         uuid: inv.uuid,
         invoiceNumber: inv.invoice_number,
         issueDate: inv.date.toISOString(),
@@ -474,7 +476,8 @@ router.get('/invoices', async (req, res) => {
                 company: {
                     include: { user: true }
                 },
-                customer: true
+                customer: true,
+                branch: true
             }
         });
 
@@ -993,8 +996,17 @@ router.post('/invoice/report', async (req, res) => {
         }
 
         // 5. Ingest/Storage (Initial PENDING state)
+        let branchIdToSave: number | undefined = undefined;
+        if (invoiceData.branchId) {
+            const parsedB = parseInt(invoiceData.branchId.toString().replace('br-', ''), 10);
+            if (!isNaN(parsedB)) {
+                branchIdToSave = parsedB;
+            }
+        }
+
         const invoice = await InvoiceService.createInvoice({
             company_id: company.id,
+            branch_id: branchIdToSave,
             customer_id: finalCustomerId,
             invoice_number: invoiceData.invoiceNumber,
             uuid: invoiceData.uuid,

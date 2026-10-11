@@ -85,14 +85,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, selectedBranch
     let relevantInvoices = invoices;
 
     if (selectedBranch) {
-      relevantInvoices = relevantInvoices.filter(inv => 
-        !selectedBranch || 
-        inv.branchId === selectedBranch.id || 
-        inv.branchId === `br-${selectedBranch.organizationId || selectedBranch.id}` ||
-        inv.branchId === `br-${selectedBranch.id}` ||
-        inv.branchId?.toString().replace('br-', '') === selectedBranch.id?.toString().replace('br-', '') ||
-        inv.branchId?.toString().replace('br-', '') === selectedBranch.organizationId?.toString().replace('br-', '')
-      );
+      relevantInvoices = relevantInvoices.filter(inv => {
+        if (!selectedBranch) return true;
+        const invBranchStr = inv.branchId?.toString();
+        const selBranchStr = selectedBranch.id?.toString();
+        const invBranchNum = invBranchStr?.replace('br-', '');
+        const selBranchNum = selBranchStr?.replace('br-', '');
+
+        // 1. Direct ID or stripped numeric ID match
+        if (invBranchStr === selBranchStr || (invBranchNum && invBranchNum === selBranchNum)) {
+          return true;
+        }
+
+        // 2. Branch Code match if present
+        if (inv.branchCode && selectedBranch.code && inv.branchCode.toLowerCase() === selectedBranch.code.toLowerCase()) {
+          return true;
+        }
+
+        // 3. Fallback for unassigned/general invoices ONLY if viewing HQ
+        const isHq = selectedBranch.type === 'HQ' || selectedBranch.code === 'BR-001' || selectedBranch.code === 'BR-HQ-01' || selectedBranch.name?.toLowerCase().includes('hq');
+        if (isHq && (!inv.branchId || inv.branchId === `br-${selectedBranch.organizationId}`)) {
+          return true;
+        }
+
+        return false;
+      });
     }
 
     const now = new Date();

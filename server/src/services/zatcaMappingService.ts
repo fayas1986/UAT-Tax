@@ -33,7 +33,9 @@ export class ZatcaMappingService {
     static mapInvoiceToFrontend(inv: any) {
         return {
             id: inv.id.toString(),
-            branchId: `br-${inv.company_id}`,
+            branchId: inv.branch_id ? inv.branch_id.toString() : (inv.branch?.id ? inv.branch?.id.toString() : `br-${inv.company_id}`),
+            branchCode: inv.branch?.code || undefined,
+            branchName: inv.branch?.name || undefined,
             uuid: inv.uuid,
             invoiceNumber: inv.invoice_number,
             issueDate: inv.date.toISOString(),

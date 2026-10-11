@@ -158,7 +158,17 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ selected
     // Filter certificates
     const filteredCertificates = certificates.filter(cert => {
         // 1. Branch Filter
-        if (selectedBranch && selectedBranch.id && cert.branchId !== selectedBranch.id) return false;
+        if (selectedBranch && selectedBranch.id) {
+            const certBStr = cert.branchId?.toString();
+            const selBStr = selectedBranch.id?.toString();
+            const certBNum = certBStr?.replace('br-', '');
+            const selBNum = selBStr?.replace('br-', '');
+            const matchesId = certBStr === selBStr || (certBNum && certBNum === selBNum);
+            const isHq = selectedBranch.type === 'HQ' || selectedBranch.code === 'BR-001' || selectedBranch.name?.toLowerCase().includes('hq');
+            if (!matchesId && !(isHq && !cert.branchId)) {
+                return false;
+            }
+        }
 
         // 2. Mock "Assigned To" Filter (Simulated logic: filtering based on ID parity for demo)
         if (filterAssigned === 'me') {

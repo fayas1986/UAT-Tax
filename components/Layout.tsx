@@ -212,10 +212,10 @@ export const Layout: React.FC<LayoutProps> = ({
     const Icon = config.icon;
 
     return (
-      <div className={`flex items-center px-4 py-1.5 rounded-full border shadow-sm transition-all ${config.styles} font-bold text-[10px] uppercase tracking-wider`}>
-         <span className={`w-2.5 h-2.5 rounded-full ${isRTL ? 'ml-2.5' : 'mr-2.5'} animate-pulse ${config.pulse} shadow-sm`}></span>
-         <Icon size={12} className={isRTL ? 'ml-2' : 'mr-2'} />
-         {config.label}
+      <div className={`flex items-center px-3.5 h-8 rounded-full border shadow-sm transition-all ${config.styles} font-bold text-[10px] uppercase tracking-wider select-none shrink-0`}>
+         <span className={`w-2 h-2 rounded-full ${isRTL ? 'ml-2' : 'mr-2'} animate-pulse ${config.pulse} shadow-sm`}></span>
+         <Icon size={13} className={isRTL ? 'ml-1.5' : 'mr-1.5'} />
+         <span>{config.label}</span>
       </div>
     );
   };
@@ -505,23 +505,23 @@ export const Layout: React.FC<LayoutProps> = ({
             </h1>
           </div>
 
-          <div className="flex items-center space-x-2 sm:space-x-4 rtl:space-x-reverse shrink-0">
-            <div className="hidden sm:block">
+          <div className="flex items-center space-x-2 sm:space-x-3 rtl:space-x-reverse shrink-0">
+            <div className="hidden sm:flex items-center">
               {renderEnvironmentBadge()}
             </div>
 
             {/* Language Selector Controls */}
-            <div className="relative" ref={langMenuRef}>
+            <div className="relative flex items-center" ref={langMenuRef}>
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors min-h-[44px] border border-slate-200/80 shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-full text-xs font-bold transition-all border border-slate-200 shadow-sm cursor-pointer select-none"
                 aria-label={t.language}
                 title={t.language}
               >
-                <Languages size={16} className="text-indigo-600 shrink-0" />
+                <Languages size={14} className="text-indigo-600 shrink-0" />
                 <span className="hidden sm:inline">{language === 'ar' ? 'العربية' : 'English'}</span>
                 <span className="sm:hidden">{language === 'ar' ? 'عرب' : 'EN'}</span>
-                <ChevronDown size={12} className="text-slate-400" />
+                <ChevronDown size={12} className="text-slate-400 shrink-0" />
               </button>
 
               {langMenuOpen && (

@@ -145,12 +145,31 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ onSelectInvoice, userR
 
   const filteredInvoices = localInvoices.filter((inv, index) => {
     // Branch Filter (resilient against string/number and `br-` prefix format differences)
-    const matchesBranch = !selectedBranch || 
-      inv.branchId === selectedBranch.id || 
-      inv.branchId === `br-${selectedBranch.organizationId || selectedBranch.id}` ||
-      inv.branchId === `br-${selectedBranch.id}` ||
-      inv.branchId?.toString().replace('br-', '') === selectedBranch.id?.toString().replace('br-', '') ||
-      inv.branchId?.toString().replace('br-', '') === selectedBranch.organizationId?.toString().replace('br-', '');
+    const matchesBranch = (() => {
+      if (!selectedBranch) return true;
+      const invBranchStr = inv.branchId?.toString();
+      const selBranchStr = selectedBranch.id?.toString();
+      const invBranchNum = invBranchStr?.replace('br-', '');
+      const selBranchNum = selBranchStr?.replace('br-', '');
+
+      // 1. Direct ID or stripped numeric ID match
+      if (invBranchStr === selBranchStr || (invBranchNum && invBranchNum === selBranchNum)) {
+        return true;
+      }
+
+      // 2. Branch Code match if present
+      if (inv.branchCode && selectedBranch.code && inv.branchCode.toLowerCase() === selectedBranch.code.toLowerCase()) {
+        return true;
+      }
+
+      // 3. Fallback for unassigned invoices ONLY if viewing HQ
+      const isHq = selectedBranch.type === 'HQ' || selectedBranch.code === 'BR-001' || selectedBranch.code === 'BR-HQ-01' || selectedBranch.name?.toLowerCase().includes('hq');
+      if (isHq && (!inv.branchId || inv.branchId === `br-${selectedBranch.organizationId}`)) {
+        return true;
+      }
+
+      return false;
+    })();
 
     // Search Filter
     const matchesSearch = !searchTerm || 

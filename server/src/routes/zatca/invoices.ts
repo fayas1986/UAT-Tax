@@ -55,7 +55,8 @@ router.get('/invoices', async (req, res) => {
             orderBy: { date: 'desc' },
             include: {
                 company: { include: { user: true } },
-                customer: true
+                customer: true,
+                branch: true
             }
         });
 

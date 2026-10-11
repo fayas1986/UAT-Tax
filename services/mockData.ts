@@ -26,18 +26,18 @@ const generateUUID = () => {
 const initialOrganizations: Organization[] = [
   {
     id: 'org-001',
-    name: 'Satguru Travels Tourism',
+    name: 'Alwadi',
     vatNumber: '300000000000003',
     crNumber: '1010101010',
     branches: [
       {
         id: 'br-001',
         organizationId: 'org-001',
-        name: 'Riyadh HQ',
+        name: 'Riyadh Main Branch (HQ)',
         type: 'HQ',
         address: {
-          streetName: 'Olaya Street',
-          buildingNumber: '1234',
+          streetName: 'King Fahd Road',
+          buildingNumber: '7210',
           additionalNumber: '1111',
           citySubdivisionName: 'Olaya',
           cityName: 'Riyadh',
@@ -48,15 +48,90 @@ const initialOrganizations: Organization[] = [
       {
         id: 'br-002',
         organizationId: 'org-001',
-        name: 'Jeddah Warehouse',
-        type: 'Warehouse',
+        name: 'Jeddah Regional Branch',
+        type: 'BRANCH',
         address: {
-          streetName: 'King Abdulaziz Rd',
-          buildingNumber: '5566',
+          streetName: 'Al Madinah Road',
+          buildingNumber: '3410',
           additionalNumber: '2222',
-          citySubdivisionName: 'Al Rawdah',
+          citySubdivisionName: 'Al Sharafeyah',
           cityName: 'Jeddah',
-          postalZone: '23432',
+          postalZone: '22234',
+          countryCode: 'SA'
+        }
+      },
+      {
+        id: 'br-003',
+        organizationId: 'org-001',
+        name: 'Dammam Branch',
+        type: 'BRANCH',
+        address: {
+          streetName: 'King Abdulaziz St',
+          buildingNumber: '8912',
+          additionalNumber: '3333',
+          citySubdivisionName: 'Al Shati',
+          cityName: 'Dammam',
+          postalZone: '32414',
+          countryCode: 'SA'
+        }
+      },
+      {
+        id: 'br-004',
+        organizationId: 'org-001',
+        name: 'Khobar Commercial Branch',
+        type: 'BRANCH',
+        address: {
+          streetName: 'Prince Turki St',
+          buildingNumber: '4520',
+          additionalNumber: '4444',
+          citySubdivisionName: 'Al Yarmouk',
+          cityName: 'Al Khobar',
+          postalZone: '34423',
+          countryCode: 'SA'
+        }
+      },
+      {
+        id: 'br-005',
+        organizationId: 'org-001',
+        name: 'Medina Branch',
+        type: 'BRANCH',
+        address: {
+          streetName: 'Sultana Rd',
+          buildingNumber: '6110',
+          additionalNumber: '5555',
+          citySubdivisionName: 'Al Iskan',
+          cityName: 'Medina',
+          postalZone: '42311',
+          countryCode: 'SA'
+        }
+      },
+      {
+        id: 'br-006',
+        organizationId: 'org-001',
+        name: 'Mecca Branch',
+        type: 'BRANCH',
+        address: {
+          streetName: 'Ibrahim Al Khalil St',
+          buildingNumber: '2310',
+          additionalNumber: '6666',
+          citySubdivisionName: 'Al Misfalah',
+          cityName: 'Mecca',
+          postalZone: '24231',
+          countryCode: 'SA'
+        }
+      },
+      {
+        id: 'br-007',
+        organizationId: 'org-001',
+        name: 'Tabuk Branch',
+        type: 'BRANCH',
+        address: {
+          streetName: 'King Faisal Rd',
+          buildingNumber: '4120',
+          additionalNumber: '7777',
+          citySubdivisionName: 'Al Ulaya',
+          cityName: 'Tabuk',
+          postalZone: '47911',
           countryCode: 'SA'
         }
       }
@@ -69,7 +144,7 @@ const initialOrganizations: Organization[] = [
     crNumber: '2020202020',
     branches: [
       {
-        id: 'br-003',
+        id: 'br-008',
         organizationId: 'org-002',
         name: 'Dammam Mall Store',
         type: 'Store',
@@ -99,34 +174,82 @@ const initialCertificates: Certificate[] = [
   {
     id: 'cert-001',
     branchId: 'br-001',
-    commonName: 'CCSID-Production-01',
+    commonName: 'CCSID-Production-HQ',
     serialNumber: '5647382910',
     validFrom: '2023-01-01',
-    validTo: getFutureDate(365), // Active for a year
+    validTo: getFutureDate(365),
     status: 'Active',
     type: 'Production',
-    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...', // Mock Public Key
+    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
     hasPrivateKey: true
   },
   {
     id: 'cert-002',
-    branchId: 'br-001',
-    commonName: 'PCSID-Simulation-02',
+    branchId: 'br-002',
+    commonName: 'CCSID-Production-Jeddah',
     serialNumber: '1029384756',
     validFrom: '2023-06-15',
-    validTo: '2024-06-15',
-    status: 'Expired',
-    type: 'Simulation',
+    validTo: getFutureDate(300),
+    status: 'Active',
+    type: 'Production',
     publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
     hasPrivateKey: true
   },
   {
     id: 'cert-003',
-    branchId: 'br-002',
-    commonName: 'CCSID-Prod-Backup',
+    branchId: 'br-003',
+    commonName: 'CCSID-Production-Dammam',
     serialNumber: '9988776655',
     validFrom: '2023-01-01',
-    validTo: getFutureDate(20), // Expiring in 20 days
+    validTo: getFutureDate(280),
+    status: 'Active',
+    type: 'Production',
+    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
+    hasPrivateKey: true
+  },
+  {
+    id: 'cert-004',
+    branchId: 'br-004',
+    commonName: 'CCSID-Production-Khobar',
+    serialNumber: '8877665544',
+    validFrom: '2023-03-01',
+    validTo: getFutureDate(250),
+    status: 'Active',
+    type: 'Production',
+    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
+    hasPrivateKey: true
+  },
+  {
+    id: 'cert-005',
+    branchId: 'br-005',
+    commonName: 'CCSID-Production-Medina',
+    serialNumber: '7766554433',
+    validFrom: '2023-04-10',
+    validTo: getFutureDate(220),
+    status: 'Active',
+    type: 'Production',
+    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
+    hasPrivateKey: true
+  },
+  {
+    id: 'cert-006',
+    branchId: 'br-006',
+    commonName: 'CCSID-Production-Mecca',
+    serialNumber: '6655443322',
+    validFrom: '2023-05-12',
+    validTo: getFutureDate(200),
+    status: 'Active',
+    type: 'Production',
+    publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
+    hasPrivateKey: true
+  },
+  {
+    id: 'cert-007',
+    branchId: 'br-007',
+    commonName: 'CCSID-Production-Tabuk',
+    serialNumber: '5544332211',
+    validFrom: '2023-07-01',
+    validTo: getFutureDate(180),
     status: 'Active',
     type: 'Production',
     publicKey: 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...',
@@ -184,8 +307,8 @@ const generateMockInvoices = (count: number): Invoice[] => {
         const vat = baseAmount * 0.15;
         const total = baseAmount + vat;
 
-        const branchIds = ['br-001', 'br-002', 'br-003'];
-        const branchId = branchIds[Math.floor(Math.random() * branchIds.length)];
+        const branchIds = ['br-001', 'br-002', 'br-003', 'br-004', 'br-005', 'br-006', 'br-007'];
+        const branchId = branchIds[i % branchIds.length];
 
         return {
             id: `mock-${i + 100}`,
@@ -276,7 +399,7 @@ const staticInvoices: Invoice[] = [
     invoiceHash: 'sha256_hash_mock_1',
     previousInvoiceHash: 'NWZlYTY...',
     signature: 'ecdsa_sig_mock_1',
-    qrCode: 'AR1TYXRndXJ1IFRyYXZlbHMgVG91cmlzbQEzMzAwMDAwMDAwMDAwMDAzDAMyMDIzLTEwLTI1VDE0OjMwOjAwBABANTc1MC4wMAUANzUwLjAwBghzaGEyNTZfMQcOZWNkc2Ffc2lnX21vY2s_CAA...',
+    qrCode: 'AQZBbHdhZGkCDzMwMDAwMDAwMDAwMDAwMwMTMjAyMy0xMC0yNVQxNDozMDowMAQHNTc1MC4wMAUGNzUwLjAwBhJzaGEyNTZfaGFzaF9tb2NrXzEHEGVjZHNhX3NpZ19tb2NrXzEIJ01Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRS4uLg==',
     zatcaResponse: {
         status: 'PASS',
         validationResults: [{ type: 'WARNING', code: 'BR-KSA-01', message: 'Address slightly incomplete' }]
@@ -328,7 +451,17 @@ const initialERPs: ERPSystem[] = [
 
 // --- LOADING STATE FROM STORAGE ---
 
-export const mockOrganizations: Organization[] = loadFromStorage(KEYS.ORGANIZATIONS, initialOrganizations);
+const rawStoredOrgs = loadFromStorage<Organization[]>(KEYS.ORGANIZATIONS, initialOrganizations);
+// Migrate any legacy cached data
+export const mockOrganizations: Organization[] = rawStoredOrgs.map(org => {
+  if (org.name === 'Satguru Travels Tourism') {
+    return { ...org, name: 'Alwadi' };
+  }
+  return org;
+});
+if (rawStoredOrgs.some(org => org.name === 'Satguru Travels Tourism')) {
+  saveToStorage(KEYS.ORGANIZATIONS, mockOrganizations);
+}
 export const mockCertificates: Certificate[] = loadFromStorage(KEYS.CERTIFICATES, initialCertificates);
 export const mockAuditLogs: AuditLogEntry[] = loadFromStorage(KEYS.AUDIT_LOGS, initialAuditLogs);
 export const mockERPs: ERPSystem[] = loadFromStorage(KEYS.ERPS, initialERPs);

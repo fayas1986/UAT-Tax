@@ -81,24 +81,36 @@ describe('Tenant Isolation & Authorization Security Remediation Suite', () => {
     }
     easyLeaseCompanyId = easyLeaseComp.id;
 
-    // 3. Issue valid JWT Tokens
+    // 3. Setup Super Admin User
+    const userSuperAdmin = await prisma.user.upsert({
+      where: { email: 'superadmin@alwadipoultry.com' },
+      update: { role: 'SUPER_ADMIN' },
+      create: {
+        id: 'system_superadmin_user',
+        email: 'superadmin@alwadipoultry.com',
+        role: 'SUPER_ADMIN',
+        company_name: 'Alwadi Trading L.L.C.'
+      }
+    });
+
+    // 4. Issue valid JWT Tokens
     alwadiToken = signJwt({
-      userId: 'alwadi_admin_user',
+      userId: userAlwadi.id,
       email: alwadiEmail,
       role: 'IT_ADMIN',
       companyId: alwadiCompanyId
     });
 
     superAdminToken = signJwt({
-      userId: 'system_superadmin_user',
-      email: 'superadmin@alwadipoultry.com',
+      userId: userSuperAdmin.id,
+      email: userSuperAdmin.email,
       role: 'SUPER_ADMIN',
       companyId: alwadiCompanyId
     });
 
     // Token for ordinary user trying to claim SUPER_ADMIN in token payload without DB membership
     forgedHeaderToken = signJwt({
-      userId: 'alwadi_admin_user',
+      userId: userAlwadi.id,
       email: alwadiEmail,
       role: 'IT_ADMIN',
       companyId: alwadiCompanyId
@@ -110,7 +122,9 @@ describe('Tenant Isolation & Authorization Security Remediation Suite', () => {
       if (easyLeaseCompanyId) {
         await prisma.company.deleteMany({ where: { id: easyLeaseCompanyId } });
       }
-      await prisma.user.deleteMany({ where: { email: 'easylease_admin@easylease.sa' } });
+      await prisma.user.deleteMany({
+        where: { email: { in: ['easylease_admin@easylease.sa', 'superadmin@alwadipoultry.com'] } }
+      });
     } catch (e) {}
     await prisma.$disconnect();
   });

@@ -34,10 +34,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Install Gitleaks
+        run: |
+          curl -sSL -o /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_x64.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp
+          sudo mv /tmp/gitleaks /usr/local/bin/gitleaks
       - name: Gitleaks Secret Scanner
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks detect --verbose --config .gitleaks.toml
       - run: npm audit --audit-level=high || true
 
   test-suite:
@@ -72,7 +75,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma db push --accept-data-loss
-      - run: npx vitest run --fileParallelism=false
+      - run: npx vitest run --fileParallelism=false --reporter=verbose
 
   regional-compliance:
     name: Saudi Arabia Data Residency & Spec Verification

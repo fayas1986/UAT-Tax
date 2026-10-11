@@ -39,8 +39,10 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
     next();
 });
 
-// Initialize Background Queue & Sync (Disabled on Vercel)
-if (!process.env.VERCEL) {
+// Initialize Background Queue & Sync (Disabled on Vercel and during tests)
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+
+if (!process.env.VERCEL && !isTestEnv) {
     QueueService.resume().then(() => {
         console.log('[Queue] Background queue resumed successfully');
         SyncService.start(); // RE-ENABLED: Pulling pending invoices from ERP
@@ -50,12 +52,14 @@ if (!process.env.VERCEL) {
     
     // Start API Key Rotation background job
     KeyRotationService.start();
-} else {
+} else if (process.env.VERCEL) {
     console.log('[Server] Running on Vercel: Background Sync Service is inactive.');
 }
 
-// Start Database Keep-Alive Heartbeat (Runs on both local server and Vercel warmup to prevent DB sleep)
-KeepAliveService.start();
+// Start Database Keep-Alive Heartbeat (Disabled during test execution)
+if (!isTestEnv) {
+    KeepAliveService.start();
+}
 // Harden security headers with Helmet
 app.use(helmet({
     contentSecurityPolicy: {
@@ -154,8 +158,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Export app for Vercel serverless functions
 export default app;
 
-// Only listen if not running as a serverless function
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+// Only listen if not running in a test suite or serverless function
+if (!isTestEnv && (!process.env.VERCEL || process.env.NODE_ENV === 'development')) {
     app.listen(port as number, '0.0.0.0', () => {
         console.log(`ZATCA Backend listening at http://localhost:${port}`);
     });

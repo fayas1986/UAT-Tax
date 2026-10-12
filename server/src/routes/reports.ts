@@ -2,26 +2,13 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import prisma from '../lib/prisma.js';
+import { authenticateJWT, requireVerifiedAdmin, requireVerifiedSuperAdmin, enforceCompanyAccess, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// Middleware copied from admin.ts for consistency
-const requireSuperAdmin = (req: any, res: any, next: any) => {
-    const userRole = req.headers['x-user-role'];
-    if (userRole !== 'SUPER_ADMIN') {
-        return res.status(403).json({ error: 'Access Denied: Super Admin only' });
-    }
-    next();
-};
-
-const requireAnyAdmin = (req: any, res: any, next: any) => {
-    const userRole = req.headers['x-user-role'];
-    const allowedRoles = ['SUPER_ADMIN', 'IT_ADMIN', 'FINANCE_ADMIN', 'TAX_OFFICER'];
-    if (!allowedRoles.includes(userRole)) {
-        return res.status(403).json({ error: 'Access Denied: Unauthorized role' });
-    }
-    next();
-};
+// Cryptographically verified role-based access control middlewares
+const requireSuperAdmin = [authenticateJWT, requireVerifiedSuperAdmin];
+const requireAnyAdmin = [authenticateJWT, requireVerifiedAdmin];
 
 
 const formatKsaValue = (val: any) => {
@@ -296,12 +283,12 @@ router.delete('/templates/:id', requireSuperAdmin, async (req, res) => {
 
 
 // POST /api/admin/reports/generate/:id - Generate report data
-router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
+router.post('/generate/:id', requireAnyAdmin, async (req: AuthenticatedRequest, res) => {
     try {
         const templateId = parseInt(req.params.id);
         const { dateRange, format = 'json' } = req.body;
-        const userRole = req.headers['x-user-role'];
-        const userEmail = req.headers['x-user-email'] as string;
+        const userRole = req.user?.role;
+        const userEmail = req.user?.email || '';
 
         const template = await prisma.report_template.findUnique({
             where: { id: templateId }
@@ -428,27 +415,20 @@ router.post('/generate/:id', requireAnyAdmin, async (req, res) => {
 });
 
 // GET /api/reports/vat-summary - Tenant-scoped VAT summary report
-router.get('/vat-summary', async (req, res) => {
+router.get('/vat-summary', authenticateJWT, async (req: AuthenticatedRequest, res) => {
     try {
-        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-        const userRole = req.headers['x-user-role'];
-        let targetCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : undefined;
+        const verifiedUser = req.user;
+        let targetCompanyId = req.query.companyId ? parseInt(req.query.companyId as string, 10) : verifiedUser?.companyId;
 
-        // If not SUPER_ADMIN, strictly scope companyId to user's authorized company
-        if (userRole !== 'SUPER_ADMIN' && userEmail) {
-            const user = await prisma.user.findFirst({
-                where: { email: { equals: userEmail, mode: 'insensitive' } },
-                include: { companies: true }
-            });
-            const authorizedCompany = user?.companies?.[0] || await prisma.company.findFirst({ where: { user_id: user?.id } });
-            if (authorizedCompany) {
-                targetCompanyId = authorizedCompany.id;
-            }
+        if (targetCompanyId && !enforceCompanyAccess(req, targetCompanyId)) {
+            return res.status(403).json({ error: 'Forbidden: Access to requested company is unauthorized.' });
         }
 
         const where: any = { is_deleted: false };
         if (targetCompanyId) {
             where.company_id = targetCompanyId;
+        } else if (verifiedUser?.role !== 'SUPER_ADMIN') {
+            where.company_id = { in: verifiedUser?.authorizedCompanyIds || [] };
         }
 
         const invoices = await prisma.invoice.findMany({

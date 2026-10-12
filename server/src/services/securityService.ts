@@ -1,41 +1,19 @@
 import * as crypto from 'crypto';
-
-const ENCRYPTION_KEY = Buffer.from((process.env.ENCRYPTION_KEY || 'v-7h-Z-9_q-R-4_x-L-1_p-m-9_o-k-2_j').padEnd(32, '0').substring(0, 32), 'utf-8');
-const IV_LENGTH = 16;
+import { encrypt as gcmEncrypt, decrypt as gcmDecrypt } from '../utils/crypto.js';
 
 export class SecurityService {
     /**
-     * Encrypts sensitive data (Field-Level Encryption)
+     * Encrypts sensitive data using Authenticated AES-256-GCM
      */
     static encrypt(text: string): string {
-        try {
-            const iv = crypto.randomBytes(IV_LENGTH);
-            const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-            let encrypted = cipher.update(text);
-            encrypted = Buffer.concat([encrypted, cipher.final()]);
-            return iv.toString('hex') + ':' + encrypted.toString('hex');
-        } catch (error) {
-            console.error('[Security] Encryption failed:', error);
-            return text;
-        }
+        return gcmEncrypt(text);
     }
 
     /**
-     * Decrypts sensitive data
+     * Decrypts sensitive data using Authenticated AES-256-GCM (with CBC migration fallback)
      */
     static decrypt(text: string): string {
-        try {
-            if (!text.includes(':')) return text;
-            const textParts = text.split(':');
-            const iv = Buffer.from(textParts.shift()!, 'hex');
-            const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-            const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-            let decrypted = decipher.update(encryptedText);
-            decrypted = Buffer.concat([decrypted, decipher.final()]);
-            return decrypted.toString();
-        } catch (error) {
-            return text;
-        }
+        return gcmDecrypt(text);
     }
 
     /**

@@ -3,9 +3,7 @@ import { generateCSR, signInvoice, validateInvoice } from '../services/sdkServic
 import { onboardCompliance, requestProductionCSID, reportInvoice, clearInvoice, checkCompliance, renewProductionCSID } from '../services/zatcaService.js';
 import { generateInvoiceXML } from '../services/xmlService.js';
 import { reflectStatusToERP } from '../services/integrationService.js';
-import reportsRouter from './reports.js';
-import { FALLBACK_USERS } from './auth.js';
-import QueueService from '../services/queueService.js';
+import { hashPassword } from '../utils/password.js';
 import { NotificationService } from '../services/notificationService.js';
 import prisma from '../lib/prisma.js';
 import { SecurityService } from '../services/securityService.js';
@@ -18,6 +16,7 @@ import { invoice_status } from '@prisma/client';
 import { getSafeString } from '../utils/stringUtils.js';
 import { InvoiceService } from '../services/invoiceService.js';
 import { ZatcaMappingService } from '../services/zatcaMappingService.js';
+import { authenticateJWT, enforceCompanyAccess, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 const router = Router();
 // ISOLATION_FALLBACK_EMAILS removed - Access now strictly database and role-driven
 
@@ -257,33 +256,24 @@ router.get('/ping/:env', async (req, res) => {
  *       200:
  *         description: List of certificates
  */
-router.get('/certificates', async (req, res) => {
+router.get('/certificates', authenticateJWT, async (req: AuthenticatedRequest, res) => {
     try {
         const rawCompanyId = req.query.companyId || req.query.branchId;
         if (!rawCompanyId) {
             return res.status(400).json({ error: 'companyId is required' });
         }
 
-        const userRole = req.headers['x-user-role'];
-        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-
         let cleanCompanyId = getSafeString(rawCompanyId);
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
-        const where: any = { company_id: parseInt(cleanCompanyId) };
+        const targetCompanyId = parseInt(cleanCompanyId, 10);
 
-        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
-            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
-            if (!user) return res.status(403).json({ error: 'User not found' });
-
-            where.company = {
-                OR: [
-                    { user: { email: userEmail } },
-                    { registered_name: user.company_name || '___NEVER_MATCH___' }
-                ]
-            };
+        if (!enforceCompanyAccess(req, targetCompanyId)) {
+            return res.status(403).json({ error: 'Forbidden: Access to requested company certificates is unauthorized.' });
         }
+
+        const where: any = { company_id: targetCompanyId, is_deleted: false };
 
         const certificates = await prisma.certificate.findMany({
             where,
@@ -432,13 +422,9 @@ const mapInvoiceToFrontend = (inv: any) => {
  *       200:
  *         description: List of invoices
  */
-router.get('/invoices', async (req, res) => {
+router.get('/invoices', authenticateJWT, async (req: AuthenticatedRequest, res) => {
     try {
         const rawCompanyId = req.query.companyId || req.query.branchId;
-        const userRole = req.headers['x-user-role'];
-        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-
-        console.log(`[ZATCA API] Fetching invoices. CompanyID: ${rawCompanyId}, Role: ${userRole}, Email: ${userEmail}`);
 
         if (!rawCompanyId) {
             return res.status(400).json({ error: 'companyId is required' });
@@ -448,26 +434,16 @@ router.get('/invoices', async (req, res) => {
         if (cleanCompanyId.startsWith('br-')) {
             cleanCompanyId = cleanCompanyId.replace('br-', '');
         }
+        const targetCompanyId = parseInt(cleanCompanyId, 10);
+
+        if (!enforceCompanyAccess(req, targetCompanyId)) {
+            return res.status(403).json({ error: 'Forbidden: Access to requested company invoices is unauthorized.' });
+        }
+
         const where: any = { 
-            company_id: parseInt(cleanCompanyId),
+            company_id: targetCompanyId,
             is_deleted: false
         };
-
-        // If not SUPER_ADMIN, verify ownership OR membership
-        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail.trim() !== '' && userEmail !== 'undefined') {
-            console.log(`[ZATCA API] Applying membership-aware filter for user`);
-            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
-            if (user) {
-                where.company = {
-                    OR: [
-                        { user: { email: userEmail } },
-                        { registered_name: { equals: user.company_name || '___NEVER_MATCH___', mode: 'insensitive' } }
-                    ]
-                };
-            }
-        } else {
-            console.log(`[ZATCA API] NO ownership filter applied (Role: ${userRole}, Email: ${userEmail}) - Full access enabled for ${rawCompanyId}`);
-        }
 
         const invoices = await prisma.invoice.findMany({
             where,
@@ -510,32 +486,14 @@ router.get('/invoices', async (req, res) => {
  *       200:
  *         description: Invoice details
  */
-router.get(['/invoices/:id', '/:id'], async (req, res) => {
+router.get(['/invoices/:id', '/:id'], authenticateJWT, async (req: AuthenticatedRequest, res) => {
     try {
         const id = String(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
-        console.log(`[ZATCA API] Fetching invoice with ID/UUID: ${id}`);
 
         // Handle UUID vs Integer ID
         const isUuid = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
-        console.log(`[ZATCA API] Detected as UUID: ${!!isUuid}`);
-
-        const userRole = req.headers['x-user-role'];
-        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-
         const where: any = isUuid ? { uuid: id } : { id: parseInt(id, 10) };
         where.is_deleted = false;
-
-        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
-            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
-            if (!user) return res.status(403).json({ error: 'User not found' });
-
-            where.company = {
-                OR: [
-                    { user: { email: userEmail } },
-                    { registered_name: user.company_name || '___NEVER_MATCH___' }
-                ]
-            };
-        }
 
         const invoice = await prisma.invoice.findFirst({
             where,
@@ -546,11 +504,12 @@ router.get(['/invoices/:id', '/:id'], async (req, res) => {
         });
 
         if (!invoice) {
-            console.warn(`[ZATCA API] Invoice not found: ${id}`);
             return res.status(404).json({ error: 'Invoice not found' });
         }
 
-        console.log(`[ZATCA API] Successfully found invoice: ${invoice.invoice_number} (DB ID: ${invoice.id})`);
+        if (!enforceCompanyAccess(req, invoice.company_id)) {
+            return res.status(403).json({ error: 'Forbidden: Access to requested invoice is unauthorized.' });
+        }
 
         res.json(mapInvoiceToFrontend(invoice));
     } catch (error: any) {
@@ -560,28 +519,12 @@ router.get(['/invoices/:id', '/:id'], async (req, res) => {
 });
 
 // GET /api/invoices/:id/xml & /api/zatca/invoices/:id/xml - Fetch Invoice XML with Tenant Isolation
-router.get(['/invoices/:id/xml', '/:id/xml'], async (req, res) => {
+router.get(['/invoices/:id/xml', '/:id/xml'], authenticateJWT, async (req: AuthenticatedRequest, res) => {
     try {
         const id = String(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
-        const userRole = req.headers['x-user-role'];
-        const userEmail = (req.headers['x-user-email'] as string)?.trim().toLowerCase();
-
         const isUuid = id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
         const where: any = isUuid ? { uuid: id } : { id: parseInt(id, 10) };
-
         where.is_deleted = false;
-
-        if (userRole !== 'SUPER_ADMIN' && userEmail && userEmail !== 'undefined') {
-            const user = (await prisma.user.findUnique({ where: { email: userEmail } })) || FALLBACK_USERS[userEmail];
-            if (!user) return res.status(403).json({ error: 'User not found' });
-
-            where.company = {
-                OR: [
-                    { user: { email: userEmail } },
-                    { registered_name: user.company_name || '___NEVER_MATCH___' }
-                ]
-            };
-        }
 
         const invoice = await prisma.invoice.findFirst({
             where,
@@ -593,6 +536,10 @@ router.get(['/invoices/:id/xml', '/:id/xml'], async (req, res) => {
                 error: 'Invoice not found',
                 message: 'Invoice or XML payload not found'
             });
+        }
+
+        if (!enforceCompanyAccess(req, invoice.company_id)) {
+            return res.status(403).json({ error: 'Forbidden: Access to requested invoice XML is unauthorized.' });
         }
 
         res.setHeader('Content-Type', 'application/xml');
@@ -783,7 +730,7 @@ csr.industry.business.category=${industry || 'IT'}`;
                         email: userEmail || 'admin@zatca-fatoora.com',
                         company_name: companyName,
                         role: 'IT_ADMIN',
-                        password: 'password123'
+                        password: hashPassword(crypto.randomBytes(24).toString('hex'))
                     }
                 });
             }

@@ -174,37 +174,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
             include: { company: true }
         });
 
-        // SIMULATION / SANDBOX / PRODUCTION BYPASS: Create a virtual config if it's a standard key
-        if (!erpConfig && (
-            trimmedClientId === 'sk_sim_zatcaconnect_mock_v1' ||
-            trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
-            trimmedClientId === 'sk_live_zatcaconnect_prod_v1' ||
-            trimmedClientId === 'zatcaconnect_prod_v1' ||
-            trimmedClientId === 'zatcaconnect_prod'
-        )) {
-            console.log(`[V2 HMAC] Attempting to find a real company for virtual config (${trimmedClientId})...`);
-            const fallbackCompany = await prisma.company.findFirst({
-                where: { is_active: true }
-            });
 
-            if (fallbackCompany) {
-                console.log(`[V2 HMAC] Linked to Company: ${fallbackCompany.registered_name} (${fallbackCompany.id})`);
-                erpConfig = {
-                    id: trimmedClientId,
-                    api_key: trimmedClientId,
-                    is_active: true,
-                    company: fallbackCompany
-                };
-            } else {
-                console.warn(`[V2 HMAC] No active companies found for virtual config!`);
-                erpConfig = {
-                    id: trimmedClientId,
-                    api_key: trimmedClientId,
-                    is_active: true,
-                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'Virtual Tenant' } as any
-                };
-            }
-        }
 
         if (!erpConfig) {
             console.warn(`[V2 HMAC] Identity Check Failed: No active config for ${trimmedClientId}`);
@@ -214,15 +184,7 @@ const authenticateHMAC = async (req: Request, res: Response, next: any) => {
         // --- 4. Cryptographic Verification ---
         let secret = erpConfig.api_key || process.env.V2_FALLBACK_SECRET;
 
-        // FLEXIBLE BYPASS FOR STANDARD KEYS
-        if (trimmedClientId && (
-            trimmedClientId === 'sk_sim_zatcaconnect_mock_v1' ||
-            trimmedClientId === 'sk_sbox_zatcaconnect_uat_v1' ||
-            trimmedClientId === 'sk_live_zatcaconnect_prod_v1' ||
-            trimmedClientId.includes('zatcaconnect_prod')
-        )) {
-            secret = trimmedClientId.includes('zatcaconnect_prod') ? 'sk_live_zatcaconnect_prod_v1' : trimmedClientId;
-        }
+
 
         if (!secret) {
             console.error(`[V2 HMAC] Security Gap: No secret configured for Client ${trimmedClientId}`);
@@ -320,37 +282,7 @@ const authenticateSimple = async (req: Request, res: Response, next: any) => {
             include: { company: true }
         });
 
-        // SIMULATION / SANDBOX / PRODUCTION VIRTUAL BYPASS: Create virtual config if testing with standard keys
-        if (!erpConfig && (
-            apiKey === 'sk_sim_zatcaconnect_mock_v1' ||
-            apiKey === 'sk_sbox_zatcaconnect_uat_v1' ||
-            apiKey === 'sk_live_zatcaconnect_prod_v1' ||
-            apiKey === 'zatcaconnect_prod_v1' ||
-            apiKey === 'zatcaconnect_prod'
-        )) {
-            console.log(`[V1 Simple Auth] Attempting virtual fallback for standard key: ${apiKey}`);
-            const fallbackCompany = await prisma.company.findFirst({
-                where: { is_active: true }
-            });
 
-            if (fallbackCompany) {
-                console.log(`[V1 Simple Auth] Linked virtual key ${apiKey} to Company: ${fallbackCompany.registered_name} (${fallbackCompany.id})`);
-                erpConfig = {
-                    id: apiKey,
-                    api_key: apiKey,
-                    is_active: true,
-                    company: fallbackCompany
-                };
-            } else {
-                console.warn(`[V1 Simple Auth] No active companies found for virtual config!`);
-                erpConfig = {
-                    id: apiKey,
-                    api_key: apiKey,
-                    is_active: true,
-                    company: { id: '00000000-0000-0000-0000-000000000000', registered_name: 'Virtual Tenant' } as any
-                };
-            }
-        }
 
         if (!erpConfig) return sendError(res, 401, 'UNAUTHORIZED', 'Invalid or inactive API Key');
 

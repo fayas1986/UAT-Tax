@@ -3,38 +3,30 @@ import { PrismaClient } from '@prisma/client';
 import prisma from '../lib/prisma.js';
 import { decrypt } from '../utils/crypto.js';
 import { signJwt } from '../utils/jwt.js';
+import { verifyPassword, hashPassword, needsRehash } from '../utils/password.js';
 
 const router = Router();
 
 const defaultCompanyName = process.env.COMPANY_REGISTERED_NAME || 'Alwadi Trading L.L.C.';
-const defaultAdminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Zatca#Secure!2026';
 
-// ─── Fallback users for local development / initial setup when DB is unreachable ──
-export const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = {
+// ─── Test-Only Fallback Registry (Strictly disabled in production) ──
+export const FALLBACK_USERS: Record<string, { id: string; email: string; password: string; name: string; role: string; company_name: string; company_id?: number }> = process.env.NODE_ENV === 'test' ? {
     'superadmin@alwadipoultry.com': {
-        id: 'u-001', email: 'superadmin@alwadipoultry.com', password: defaultAdminPassword,
+        id: 'u-001', email: 'superadmin@alwadipoultry.com', password: hashPassword('Zatca#Secure!2026'),
         name: 'Super Admin', role: 'SUPER_ADMIN', company_name: defaultCompanyName, company_id: 1
     },
     'admin@alwadipoultry.com': {
-        id: 'u-002', email: 'admin@alwadipoultry.com', password: 'password123',
+        id: 'u-002', email: 'admin@alwadipoultry.com', password: hashPassword('SecureAdmin#2026!'),
         name: 'IT Administrator', role: 'IT_ADMIN', company_name: defaultCompanyName, company_id: 1
-    },
-    'finance@alwadipoultry.com': {
-        id: 'u-003', email: 'finance@alwadipoultry.com', password: 'password123',
-        name: 'Finance Manager', role: 'FINANCE_ADMIN', company_name: defaultCompanyName, company_id: 1
-    },
-    'tax@alwadipoultry.com': {
-        id: 'u-004', email: 'tax@alwadipoultry.com', password: 'password123',
-        name: 'Tax Officer', role: 'TAX_OFFICER', company_name: defaultCompanyName, company_id: 1
     }
-};
+} : {};
 
 /**
  * @swagger
  * /api/auth/login:
  *   post:
  *     summary: User Login
- *     description: Authenticate a user with email and password. Supports both real DB and fallback users.
+ *     description: Authenticate a user with email and cryptographically verified password.
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -48,10 +40,8 @@ export const FALLBACK_USERS: Record<string, { id: string; email: string; passwor
  *             properties:
  *               email:
  *                 type: string
- *                 example: admin@alwadi.local
  *               password:
  *                 type: string
- *                 example: Zatca#Secure!2026
  *     responses:
  *       200:
  *         description: Login successful
@@ -70,9 +60,8 @@ router.post('/login', async (req, res) => {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
-        console.log(`[Auth] Login attempt: ${normalizedEmail}`);
 
-        // ── Step 1: Database Lookup (Primary Source of Truth) ──────────────────
+        // ── Step 1: Database Lookup (Mandatory Primary Source of Truth) ──────
         let dbUser: any = null;
         try {
             const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DB_TIMEOUT')), 10000));
@@ -92,20 +81,21 @@ router.post('/login', async (req, res) => {
 
         // ── Step 2: Handle DB User Authentication ─────────────────────────────
         if (dbUser) {
-            let isMatch = false;
-            try {
-                const decrypted = dbUser.password.includes(':') ? decrypt(dbUser.password) : dbUser.password;
-                isMatch = (decrypted === password) || 
-                          (dbUser.password === password) ||
-                          (password === 'password123' && ['admin@alwadipoultry.com', 'finance@alwadipoultry.com', 'tax@alwadipoultry.com'].includes(normalizedEmail)) ||
-                          ((password === defaultAdminPassword || password === 'Zatca#Secure!2026') && ['superadmin@alwadipoultry.com', 'system.admin@alwadipoultry.com'].includes(normalizedEmail));
-            } catch (e) {
-                isMatch = (dbUser.password === password) ||
-                          (password === 'password123' && ['admin@alwadipoultry.com', 'finance@alwadipoultry.com', 'tax@alwadipoultry.com'].includes(normalizedEmail)) ||
-                          ((password === defaultAdminPassword || password === 'Zatca#Secure!2026') && ['superadmin@alwadipoultry.com', 'system.admin@alwadipoultry.com'].includes(normalizedEmail));
-            }
+            const isMatch = verifyPassword(password, dbUser.password, decrypt);
 
             if (isMatch) {
+                // Transparent Automatic Password Rehash Migration to salted scrypt
+                if (needsRehash(dbUser.password)) {
+                    prisma.user.update({
+                        where: { id: dbUser.id },
+                        data: { password: hashPassword(password) }
+                    }).then(() => {
+                        console.log(`[Auth Security] Upgraded legacy password for user ${normalizedEmail} to salted scrypt.`);
+                    }).catch(rehashErr => {
+                        console.error('[Auth Security] Automatic rehash failed:', rehashErr);
+                    });
+                }
+
                 let company: any = null;
                 try {
                     company = await prisma.company.findFirst({
@@ -123,10 +113,9 @@ router.post('/login', async (req, res) => {
                         });
                     }
                 } catch (compErr: any) {
-                    console.warn(`[Auth] Company lookup error/timeout for ${normalizedEmail}: ${compErr.message}`);
+                    console.warn(`[Auth] Company lookup error for ${normalizedEmail}: ${compErr.message}`);
                 }
 
-                console.log(`[Auth] Success via Database: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
                 const token = signJwt({
                     userId: dbUser.id,
                     email: dbUser.email,
@@ -145,34 +134,20 @@ router.post('/login', async (req, res) => {
                     source: 'database'
                 });
             } else {
-                console.warn(`[Auth] Password mismatch for DB user ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
-                // Fallthrough to check fallback accounts if DB password mismatch occurs for default demo users
+                console.warn(`[Auth] Password mismatch for DB user ${normalizedEmail}`);
+                return res.status(401).json({ error: 'Invalid credentials' });
             }
         }
 
-        // ── Step 3: Fallback Check (Support for Default Demo Accounts) ──────────
-        const fallback = FALLBACK_USERS[normalizedEmail];
-        if (fallback) {
-            let fallbackMatch = false;
-            try {
-                fallbackMatch = fallback.password.includes(':')
-                    ? decrypt(fallback.password) === password
-                    : fallback.password === password;
-            } catch (e) {
-                fallbackMatch = fallback.password === password;
-            }
-
-            if (!fallbackMatch && (password === 'password123' || password === defaultAdminPassword || password === 'Zatca#Secure!2026')) {
-                fallbackMatch = true;
-            }
-
-            if (fallbackMatch) {
-                console.log(`[Auth] Success via Fallback: ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+        // ── Step 3: Test Environment Fallback (Disabled in Production) ─────────
+        if (process.env.NODE_ENV === 'test') {
+            const fallback = FALLBACK_USERS[normalizedEmail];
+            if (fallback && verifyPassword(password, fallback.password)) {
                 const token = signJwt({
                     userId: fallback.id,
                     email: fallback.email,
                     role: fallback.role,
-                    companyId: (fallback as any).company_id || 1
+                    companyId: fallback.company_id || 1
                 });
 
                 return res.json({
@@ -182,18 +157,17 @@ router.post('/login', async (req, res) => {
                     role: fallback.role,
                     token,
                     companyName: fallback.company_name,
-                    companyId: (fallback as any).company_id,
-                    source: 'fallback'
+                    companyId: fallback.company_id || 1,
+                    source: 'test_fallback'
                 });
             }
         }
 
-        // ── Step 4: Final Failure ─────────────────────────────────────────────
-        console.warn(`[Auth] Login failed for ${normalizedEmail} (Time: ${Date.now() - startTime}ms)`);
+        // ── Step 4: Final Rejection ───────────────────────────────────────────
         return res.status(401).json({ error: 'Invalid credentials' });
 
     } catch (error: any) {
-        console.error('[Auth] CRITICAL LOGIN ERROR:', error);
+        console.error('[Auth] Login error:', error);
         return res.status(500).json({ 
             error: 'Internal server error', 
             message: error.message,

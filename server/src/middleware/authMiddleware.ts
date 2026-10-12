@@ -87,24 +87,6 @@ export const authenticateJWT = async (req: AuthenticatedRequest, res: Response, 
             authorizedCompanyIds = userCompanies.map(c => c.id);
             
             if (authorizedCompanyIds.length === 0) {
-                if (
-                    dbUser.company_name?.includes('Alwadi') || 
-                    dbUser.email?.endsWith('@alwadipoultry.com') ||
-                    dbUser.email?.endsWith('@alwadi.sa') ||
-                    dbUser.email?.endsWith('@alwadi.local')
-                ) {
-                    const alwadiComps = await prisma.company.findMany({
-                        where: {
-                            is_deleted: false,
-                            registered_name: { contains: 'Alwadi', mode: 'insensitive' }
-                        },
-                        select: { id: true }
-                    });
-                    authorizedCompanyIds = alwadiComps.map(c => c.id);
-                }
-            }
-
-            if (authorizedCompanyIds.length === 0) {
                 return res.status(403).json({
                     error: 'Forbidden: User has no verified company membership.'
                 });
@@ -114,21 +96,10 @@ export const authenticateJWT = async (req: AuthenticatedRequest, res: Response, 
                 companyId = authorizedCompanyIds[0];
             }
         } else {
-            // Fallback for verified Alwadi tokens when running without active DB connection
-            if (
-                payload.email && (
-                    payload.email.endsWith('@alwadipoultry.com') || 
-                    payload.email.endsWith('@alwadi.sa') || 
-                    payload.email.endsWith('@alwadi.local')
-                )
-            ) {
-                authorizedCompanyIds = [payload.companyId || 1];
-                if (!companyId) companyId = payload.companyId || 1;
-            } else {
-                return res.status(403).json({
-                    error: 'Forbidden: User has no verified company membership.'
-                });
-            }
+            // Unverified user record with no database identity is strictly rejected
+            return res.status(403).json({
+                error: 'Forbidden: User has no verified company membership.'
+            });
         }
 
         req.user = {
@@ -186,7 +157,7 @@ export const enforceCompanyAccess = (req: AuthenticatedRequest, targetCompanyId:
     if (!req.user) return false;
     if (req.user.role === 'SUPER_ADMIN') return true;
     if (!req.user.authorizedCompanyIds || req.user.authorizedCompanyIds.length === 0) {
-        return req.user.companyId === targetCompanyId;
+        return false;
     }
     return req.user.authorizedCompanyIds.includes(targetCompanyId);
 };
